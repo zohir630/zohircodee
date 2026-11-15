@@ -1,0 +1,12 @@
+{
+  "appId": "ai.opencode.mobile",
+  "appName": "OpenCode",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "https",
+    "cleartext": true
+  },
+  "android": {
+    "allowMixedContent": true
+  }
+}
