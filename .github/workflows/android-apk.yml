@@ -1,0 +1,60 @@
+name: Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "mobile/**"
+      - ".github/workflows/android-apk.yml"
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read Bun version from package.json
+        id: bun
+        run: echo "version=$(node -p "require('./package.json').packageManager.split('@')[1]")" >> "$GITHUB_OUTPUT"
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ steps.bun.outputs.version }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Install dependencies
+        run: bun install --ignore-scripts
+
+      - name: Build web UI (no built-in server, pairs with a remote one)
+        working-directory: packages/app
+        env:
+          VITE_OPENCODE_SERVER_MODE: none
+          OPENCODE_CHANNEL: prod
+        run: bun run build
+
+      - name: Build Android project
+        working-directory: mobile
+        run: |
+          npm install --no-audit --no-fund
+          rm -rf www && cp -r ../packages/app/dist www
+          npx cap add android
+          bash patch-android.sh
+          npx cap sync android
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: opencode-debug-apk
+          path: mobile/android/app/build/outputs/apk/debug/app-debug.apk
+          
