@@ -1,0 +1,56 @@
+name: Unzip project
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Release tag that holds the zip (leave empty to use the zip file in the repo root)"
+        required: false
+
+permissions:
+  contents: write
+
+jobs:
+  unzip:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.PAT_TOKEN || github.token }}
+
+      - name: Get the zip
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.release_tag }}
+        run: |
+          if [ -n "$TAG" ]; then
+            gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern "*.zip" --output project.zip
+          else
+            f=$(ls *.zip | head -n1)
+            mv "$f" project.zip
+          fi
+          ls -lh project.zip
+
+      - name: Unzip into the repo root
+        env:
+          HAS_PAT: ${{ secrets.PAT_TOKEN != '' }}
+        run: |
+          mkdir /tmp/x
+          unzip -q project.zip -d /tmp/x
+          top=$(ls /tmp/x | head -n1)
+          cp -r "/tmp/x/$top/." .
+          rm -f project.zip *.zip
+          # The default token cannot push workflow files; without a PAT keep them out.
+          if [ "$HAS_PAT" != "true" ]; then
+            rm -rf .github/workflows
+            echo "No PAT_TOKEN secret: .github/workflows was skipped. Add android-apk.yml by hand."
+          fi
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          git add -A
+          git commit -m "Unzip project" || echo "Nothing to commit"
+          git push
+          
