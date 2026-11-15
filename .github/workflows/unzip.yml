@@ -26,7 +26,7 @@ jobs:
           if [ -n "$TAG" ]; then
             gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern "*.zip" --output project.zip
           else
-            f=$(ls *.zip | head -n1)
+            f=$(ls -S *.zip | head -n1)
             mv "$f" project.zip
           fi
           ls -lh project.zip
@@ -37,8 +37,12 @@ jobs:
         run: |
           mkdir /tmp/x
           unzip -q project.zip -d /tmp/x
-          top=$(ls /tmp/x | head -n1)
-          cp -r "/tmp/x/$top/." .
+          n=$(ls -A /tmp/x | wc -l)
+          only=$(ls -A /tmp/x | head -n1)
+          if [ "$n" = "1" ] && [ -d "/tmp/x/$only" ]; then src="/tmp/x/$only"; else src="/tmp/x"; fi
+          echo "Copying from $src"
+          ls -A "$src" | head -20
+          cp -r "$src/." .
           rm -f project.zip *.zip
           # The default token cannot push workflow files; without a PAT keep them out.
           if [ "$HAS_PAT" != "true" ]; then
